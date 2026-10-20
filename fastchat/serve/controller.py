@@ -6,6 +6,7 @@ import argparse
 import asyncio
 import dataclasses
 from enum import Enum, auto
+from contextlib import closing
 import json
 import logging
 import os
@@ -267,17 +268,21 @@ class Controller:
         worker_addr = self.get_worker_address(params["model"])
         if not worker_addr:
             yield self.handle_no_worker(params)
+            return
 
         try:
-            response = requests.post(
-                worker_addr + "/worker_generate_stream",
-                json=params,
-                stream=True,
-                timeout=WORKER_API_TIMEOUT,
-            )
-            for chunk in response.iter_lines(decode_unicode=False, delimiter=b"\0"):
-                if chunk:
-                    yield chunk + b"\0"
+            with closing(
+                requests.post(
+                    worker_addr + "/worker_generate_stream",
+                    json=params,
+                    stream=True,
+                    timeout=WORKER_API_TIMEOUT,
+                )
+            ) as response:
+                response.raise_for_status()
+                for chunk in response.iter_lines(decode_unicode=False, delimiter=b"\0"):
+                    if chunk:
+                        yield chunk + b"\0"
         except requests.exceptions.RequestException as e:
             yield self.handle_worker_timeout(worker_addr)
 
