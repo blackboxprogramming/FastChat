@@ -51,3 +51,22 @@ PEFT_SHARE_BASE_WEIGHTS=true python3 -m fastchat.serve.multi_model_worker \
   --model-path SurfaceData/dummy_pythia160m_lora16_peft_chat \
   --model-path SurfaceData/dummy_pythia160m_lora8_peft_chat
 ```
+
+### Controller Stream Lifecycle
+
+With the package's base dependencies installed, run from the repository root:
+
+```shell
+python3 -B -m unittest discover -s tests -p test_controller_stream.py -v
+```
+
+These tests use a fake HTTP transport and construct the controller without
+starting its heartbeat thread. They require no server, model, or inference
+credentials.
+
+A missing worker yields one no-worker frame and stops without sending a request.
+Upstream HTTP errors use the existing worker-timeout frame. Successful chunks
+keep their null delimiters. The upstream response closes on exhaustion, errors,
+or explicit generator closure; callers that stop consuming early should close
+the generator. Live HTTP transport and ASGI disconnect behavior are outside
+these focused tests.
